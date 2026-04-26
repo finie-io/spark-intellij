@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chiperka Endpoint",
+  "description": "Schema for kind: Endpoint documents in *.chiperka files",
+  "type": "object",
+  "required": ["kind", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "description": "File kind discriminator",
+      "const": "Endpoint"
+    },
+    "metadata": { "$ref": "#/definitions/Metadata" },
+    "spec": { "$ref": "#/definitions/EndpointSpec" }
+  },
+  "definitions": {
+    "Metadata": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique endpoint name (referenced by `spec.endpoint` in tests)"
+        },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "EndpointSpec": {
+      "type": "object",
+      "required": ["service"],
+      "additionalProperties": false,
+      "description": "Exactly one of `endpoint` (HTTP) or `command` (CLI) should be set.",
+      "properties": {
+        "service": {
+          "type": "string",
+          "description": "metadata.name of the kind: Service this endpoint belongs to"
+        },
+        "endpoint": { "$ref": "#/definitions/EndpointHTTP" },
+        "command": { "$ref": "#/definitions/EndpointCommand" }
+      }
+    },
+    "EndpointHTTP": {
+      "type": "object",
+      "required": ["method", "url"],
+      "additionalProperties": false,
+      "description": "Documents an HTTP capability",
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+        },
+        "url": {
+          "type": "string",
+          "description": "URL pattern (e.g. /api/users/{id})"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "type": "string",
+          "description": "Example request body"
+        },
+        "response": { "$ref": "#/definitions/EndpointHTTPResponse" }
+      }
+    },
+    "EndpointHTTPResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "statusCode": { "type": "integer" },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "jsonPath": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["path"],
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "EndpointCommand": {
+      "type": "object",
+      "required": ["cmd"],
+      "additionalProperties": false,
+      "description": "Documents a CLI capability. The container is taken from spec.service.",
+      "properties": {
+        "cmd": {
+          "type": "string",
+          "description": "The command (e.g. bin/console users:export)"
+        },
+        "description": { "type": "string" },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "values": { "type": "array", "items": { "type": "string" } },
+              "default": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

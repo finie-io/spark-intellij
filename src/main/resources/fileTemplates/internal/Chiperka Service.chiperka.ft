@@ -1,6 +1,8 @@
-kind: service
-name: ${NAME}
-image: nginx:alpine
-healthcheck:
-  test: "wget -q --spider http://localhost:80/"
-  retries: 30
+kind: Service
+metadata:
+  name: ${NAME}
+spec:
+  image: nginx:alpine
+  healthcheck:
+    test: "wget -q --spider http://localhost:80/"
+    retries: 30

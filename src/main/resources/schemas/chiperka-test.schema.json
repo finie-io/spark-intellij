@@ -1,49 +1,52 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Chiperka Test Suite",
-  "description": "Schema for Chiperka test files (*.chiperka)",
+  "title": "Chiperka Test",
+  "description": "Schema for kind: Test documents in *.chiperka files (one Test per document)",
   "type": "object",
-  "required": ["name", "tests"],
+  "required": ["kind", "metadata", "spec"],
   "additionalProperties": false,
   "properties": {
     "kind": {
       "type": "string",
-      "description": "File kind discriminator (defaults to 'test' if omitted)",
-      "enum": ["test"],
-      "default": "test"
+      "description": "File kind discriminator",
+      "const": "Test"
     },
-    "name": {
-      "type": "string",
-      "description": "Suite name"
+    "metadata": {
+      "$ref": "#/definitions/Metadata"
     },
-    "tests": {
-      "type": "array",
-      "description": "Array of test definitions",
-      "items": {
-        "$ref": "#/definitions/Test"
-      }
+    "spec": {
+      "$ref": "#/definitions/TestSpec"
     }
   },
   "definitions": {
-    "Test": {
+    "Metadata": {
       "type": "object",
-      "required": ["name", "execution", "assertions"],
+      "required": ["name"],
       "additionalProperties": false,
       "properties": {
         "name": {
           "type": "string",
-          "description": "Test name"
+          "description": "Test name (unique within kind)"
         },
         "description": {
           "type": "string",
-          "description": "Test description"
+          "description": "Human-readable description"
         },
         "tags": {
           "type": "array",
           "description": "Tags for filtering (e.g. smoke, api)",
-          "items": {
-            "type": "string"
-          }
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "TestSpec": {
+      "type": "object",
+      "required": ["endpoint", "execution", "assertions"],
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "metadata.name of the kind: Endpoint this test verifies"
         },
         "skipped": {
           "type": "boolean",
@@ -52,17 +55,13 @@
         },
         "services": {
           "type": "array",
-          "description": "Docker services to start for this test",
-          "items": {
-            "$ref": "#/definitions/Service"
-          }
+          "description": "Services to start for this test (refs to kind: Service files)",
+          "items": { "$ref": "#/definitions/Service" }
         },
         "setup": {
           "type": "array",
           "description": "Setup steps run after healthchecks but before test execution",
-          "items": {
-            "$ref": "#/definitions/SetupInstruction"
-          }
+          "items": { "$ref": "#/definitions/SetupInstruction" }
         },
         "execution": {
           "$ref": "#/definitions/Execution",
@@ -71,82 +70,42 @@
         "assertions": {
           "type": "array",
           "description": "Expected outcomes to verify",
-          "items": {
-            "$ref": "#/definitions/Assertion"
-          }
+          "items": { "$ref": "#/definitions/Assertion" }
         },
         "teardown": {
           "type": "array",
           "description": "Teardown steps run after execution and assertions but before services are stopped",
-          "items": {
-            "$ref": "#/definitions/SetupInstruction"
-          }
+          "items": { "$ref": "#/definitions/SetupInstruction" }
         }
       }
     },
     "Service": {
       "type": "object",
+      "required": ["ref"],
       "additionalProperties": false,
+      "description": "Reference to a kind: Service file. Inline service definitions are not supported.",
       "properties": {
         "ref": {
           "type": "string",
-          "description": "Reference to a service template defined in chiperka.yaml"
+          "description": "metadata.name of the kind: Service to pull in"
         },
         "name": {
           "type": "string",
-          "description": "Service identifier / hostname in the Docker network"
+          "description": "Override the hostname used on the test network (defaults to ref)"
         },
         "containerName": {
           "type": "string",
-          "description": "Explicit Docker container name"
-        },
-        "image": {
-          "type": "string",
-          "description": "Docker image (e.g. nginx:alpine)"
-        },
-        "command": {
-          "description": "Override image CMD",
-          "oneOf": [
-            { "type": "string" },
-            { "type": "array", "items": { "type": "string" } }
-          ]
-        },
-        "workingDir": {
-          "type": "string",
-          "description": "Working directory inside the container"
+          "description": "Explicit container name"
         },
         "environment": {
           "type": "object",
-          "description": "Environment variables",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "healthcheck": {
-          "description": "Health check configuration. Use true for the image's built-in HEALTHCHECK.",
-          "oneOf": [
-            { "type": "boolean", "const": true },
-            { "$ref": "#/definitions/HealthCheck" }
-          ]
+          "description": "Environment variable overrides (merged with template environment)",
+          "additionalProperties": { "type": "string" }
         },
         "artifacts": {
           "type": "array",
-          "description": "External artifacts to collect from the container after test execution (files or directories)",
-          "items": {
-            "$ref": "#/definitions/ServiceArtifact"
-          }
-        },
-        "weight": {
-          "type": "integer",
-          "description": "Resource cost of running this service. Used for weight-based scheduling (default 1)",
-          "default": 1
-        },
-        "hooks": {
-          "type": "array",
-          "description": "Lifecycle hooks executed at specific points during test execution",
-          "items": {
-            "$ref": "#/definitions/Hook"
-          }
+          "description": "Additional artifacts to collect (appended to template artifacts)",
+          "items": { "$ref": "#/definitions/ServiceArtifact" }
         }
       }
     },
@@ -165,62 +124,17 @@
         }
       }
     },
-    "HealthCheck": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "test": {
-          "description": "Healthcheck command. String or Docker Compose-style array (e.g. [\"CMD-SHELL\", \"curl -f http://localhost/\"])",
-          "oneOf": [
-            { "type": "string" },
-            { "type": "array", "items": { "type": "string" } }
-          ]
-        },
-        "interval": {
-          "type": "string",
-          "description": "Health check interval (default: 1s)",
-          "default": "1s"
-        },
-        "timeout": {
-          "type": "string",
-          "description": "Health check timeout (default: 3s)",
-          "default": "3s"
-        },
-        "retries": {
-          "type": "integer",
-          "description": "Number of retries before unhealthy (default: 30)",
-          "default": 30
-        },
-        "startPeriod": {
-          "type": "string",
-          "description": "Start period before health checks count (default: 0s)",
-          "default": "0s"
-        },
-        "startInterval": {
-          "type": "string",
-          "description": "Interval between health checks during start period"
-        }
-      }
-    },
     "SetupInstruction": {
       "type": "object",
       "additionalProperties": false,
       "oneOf": [
         {
           "required": ["http"],
-          "properties": {
-            "http": {
-              "$ref": "#/definitions/SetupHTTP"
-            }
-          }
+          "properties": { "http": { "$ref": "#/definitions/SetupHTTP" } }
         },
         {
           "required": ["cli"],
-          "properties": {
-            "cli": {
-              "$ref": "#/definitions/CLICommand"
-            }
-          }
+          "properties": { "cli": { "$ref": "#/definitions/CLICommand" } }
         }
       ]
     },
@@ -233,9 +147,7 @@
           "type": "string",
           "description": "Base URL (e.g. http://service:8080)"
         },
-        "request": {
-          "$ref": "#/definitions/HTTPRequest"
-        }
+        "request": { "$ref": "#/definitions/HTTPRequest" }
       }
     },
     "Execution": {
@@ -278,24 +190,19 @@
         "headers": {
           "type": "object",
           "description": "HTTP headers",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": { "type": "string" }
         },
         "body": {
           "description": "Request body: inline string, file reference, or multipart form data",
           "oneOf": [
-            {
-              "type": "string",
-              "description": "Raw request body string"
-            },
+            { "type": "string", "description": "Raw request body string" },
             {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "file": {
                   "type": "string",
-                  "description": "Path to a file whose contents will be sent as the request body (relative to the .chiperka file)"
+                  "description": "Path to a file whose contents will be sent as the request body"
                 }
               },
               "required": ["file"]
@@ -309,24 +216,15 @@
                   "description": "Multipart form data fields",
                   "additionalProperties": {
                     "oneOf": [
-                      {
-                        "type": "string",
-                        "description": "Text field value"
-                      },
+                      { "type": "string", "description": "Text field value" },
                       {
                         "type": "object",
                         "description": "File upload field",
                         "required": ["file"],
                         "additionalProperties": false,
                         "properties": {
-                          "file": {
-                            "type": "string",
-                            "description": "Path to file (relative to .chiperka file)"
-                          },
-                          "filename": {
-                            "type": "string",
-                            "description": "Override filename sent in the multipart header (defaults to basename of file path)"
-                          }
+                          "file": { "type": "string" },
+                          "filename": { "type": "string" }
                         }
                       }
                     ]
@@ -364,27 +262,15 @@
       "oneOf": [
         {
           "required": ["response"],
-          "properties": {
-            "response": {
-              "$ref": "#/definitions/ResponseAssertion"
-            }
-          }
+          "properties": { "response": { "$ref": "#/definitions/ResponseAssertion" } }
         },
         {
           "required": ["cli"],
-          "properties": {
-            "cli": {
-              "$ref": "#/definitions/CLIAssertion"
-            }
-          }
+          "properties": { "cli": { "$ref": "#/definitions/CLIAssertion" } }
         },
         {
           "required": ["artifact"],
-          "properties": {
-            "artifact": {
-              "$ref": "#/definitions/ArtifactAssertion"
-            }
-          }
+          "properties": { "artifact": { "$ref": "#/definitions/ArtifactAssertion" } }
         }
       ]
     },
@@ -395,63 +281,43 @@
       "properties": {
         "statusCode": {
           "type": "integer",
-          "description": "Expected HTTP status code (e.g. 200)"
+          "description": "Expected HTTP status code"
         },
         "headers": {
           "type": "object",
           "description": "Header assertions keyed by header name",
-          "additionalProperties": {
-            "$ref": "#/definitions/HeaderMatcher"
-          }
+          "additionalProperties": { "$ref": "#/definitions/HeaderMatcher" }
         },
         "body": {
-          "$ref": "#/definitions/ResponseBodyAssertion",
-          "description": "Response body assertions"
+          "$ref": "#/definitions/ResponseBodyAssertion"
         },
         "time": {
-          "$ref": "#/definitions/ResponseTimeAssertion",
-          "description": "Response time assertions"
+          "$ref": "#/definitions/ResponseTimeAssertion"
         }
       }
     },
     "HeaderMatcher": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Matcher for a single HTTP response header",
       "properties": {
-        "equals": {
-          "type": "string",
-          "description": "Header value must equal this string exactly"
-        },
-        "contains": {
-          "type": "string",
-          "description": "Header value must contain this substring"
-        },
-        "exists": {
-          "type": "boolean",
-          "description": "Assert that the header exists (true) or does not exist (false)"
-        }
+        "equals": { "type": "string" },
+        "contains": { "type": "string" },
+        "exists": { "type": "boolean" }
       }
     },
     "ResponseBodyAssertion": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Assertions for the HTTP response body",
       "properties": {
         "jsonPath": {
           "type": "array",
-          "description": "JSONPath assertions on the response body",
           "items": {
             "type": "object",
             "required": ["path", "expected"],
             "additionalProperties": false,
             "properties": {
-              "path": {
-                "type": "string",
-                "description": "JSONPath expression starting with $"
-              },
+              "path": { "type": "string" },
               "expected": {
-                "description": "Expected value, or 'exists' to check field presence",
                 "oneOf": [
                   { "type": "string" },
                   { "type": "number" },
@@ -461,159 +327,47 @@
             }
           }
         },
-        "contains": {
-          "type": "string",
-          "description": "Response body must contain this substring"
-        },
-        "equals": {
-          "type": "string",
-          "description": "Response body must equal this string exactly"
-        },
-        "minSize": {
-          "type": "integer",
-          "description": "Minimum response body size in bytes"
-        },
-        "snapshot": {
-          "type": "string",
-          "description": "Path to a snapshot file for body comparison (relative to .chiperka file)"
-        }
+        "contains": { "type": "string" },
+        "equals": { "type": "string" },
+        "minSize": { "type": "integer" },
+        "snapshot": { "type": "string" }
       }
     },
     "ResponseTimeAssertion": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Assertions for HTTP response timing",
       "properties": {
-        "maxMs": {
-          "type": "integer",
-          "description": "Maximum allowed response time in milliseconds"
-        }
+        "maxMs": { "type": "integer" }
       }
     },
     "CLIAssertion": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Assertions for CLI command execution results",
       "properties": {
-        "exitCode": {
-          "type": "integer",
-          "description": "Expected exit code (e.g. 0)"
-        },
-        "stdout": {
-          "$ref": "#/definitions/CLIOutputAssertion",
-          "description": "Assertions on standard output"
-        },
-        "stderr": {
-          "$ref": "#/definitions/CLIOutputAssertion",
-          "description": "Assertions on standard error"
-        }
+        "exitCode": { "type": "integer" },
+        "stdout": { "$ref": "#/definitions/CLIOutputAssertion" },
+        "stderr": { "$ref": "#/definitions/CLIOutputAssertion" }
       }
     },
     "CLIOutputAssertion": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Assertions for a CLI output stream (stdout or stderr)",
       "properties": {
-        "contains": {
-          "type": "string",
-          "description": "Output must contain this substring"
-        },
-        "equals": {
-          "type": "string",
-          "description": "Output must equal this string exactly"
-        },
-        "snapshot": {
-          "type": "string",
-          "description": "Path to a snapshot file for comparison (relative to .chiperka file)"
-        }
+        "contains": { "type": "string" },
+        "equals": { "type": "string" },
+        "snapshot": { "type": "string" }
       }
     },
     "ArtifactAssertion": {
       "type": "object",
       "required": ["name"],
       "additionalProperties": false,
-      "description": "Assertions for service artifacts collected after test execution",
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the artifact (matches the artifact name or filename from service definition)"
-        },
-        "exists": {
-          "type": "boolean",
-          "description": "Assert that the artifact exists (true) or does not exist (false)"
-        },
-        "minSize": {
-          "type": "integer",
-          "description": "Minimum artifact file size in bytes"
-        },
-        "maxSize": {
-          "type": "integer",
-          "description": "Maximum artifact file size in bytes"
-        },
-        "snapshot": {
-          "type": "string",
-          "description": "Path to a reference file for content comparison (relative to .chiperka file)"
-        }
-      }
-    },
-    "Hook": {
-      "type": "object",
-      "required": ["slot"],
-      "additionalProperties": false,
-      "description": "Lifecycle hook executed at a specific point during test execution",
-      "properties": {
-        "slot": {
-          "type": "string",
-          "description": "When to run: beforeExecution (after setup) or afterExecution (after teardown + artifacts)",
-          "enum": ["beforeExecution", "afterExecution"]
-        },
-        "priority": {
-          "type": "integer",
-          "description": "Execution order (lower = earlier, default: 50)",
-          "default": 50
-        },
-        "cli": {
-          "$ref": "#/definitions/HookCLI",
-          "description": "Execute a command inside the owning service container"
-        },
-        "diff": {
-          "$ref": "#/definitions/HookDiff",
-          "description": "Compute a unified diff between two collected artifacts"
-        }
-      }
-    },
-    "HookCLI": {
-      "type": "object",
-      "required": ["command"],
-      "additionalProperties": false,
-      "properties": {
-        "command": {
-          "type": "string",
-          "description": "Shell command to execute inside the service container"
-        },
-        "workingDir": {
-          "type": "string",
-          "description": "Working directory for command execution"
-        }
-      }
-    },
-    "HookDiff": {
-      "type": "object",
-      "required": ["source", "target", "output"],
-      "additionalProperties": false,
-      "properties": {
-        "source": {
-          "type": "string",
-          "description": "Name of the source artifact to diff"
-        },
-        "target": {
-          "type": "string",
-          "description": "Name of the target artifact to diff"
-        },
-        "output": {
-          "type": "string",
-          "description": "Name for the resulting diff artifact"
-        }
+        "name": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "minSize": { "type": "integer" },
+        "maxSize": { "type": "integer" },
+        "snapshot": { "type": "string" }
       }
     }
   }

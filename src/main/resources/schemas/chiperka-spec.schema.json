@@ -1,11 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Chiperka Specification",
-  "description": "Schema for Chiperka specification files (*.chiperka) — either a test suite or a service template",
-  "if": {
-    "properties": { "kind": { "const": "service" } },
-    "required": ["kind"]
-  },
-  "then": { "$ref": "chiperka-service.schema.json" },
-  "else": { "$ref": "chiperka-test.schema.json" }
+  "description": "Schema for Chiperka specification files (*.chiperka) — kind: Service, Endpoint, or Test",
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "Service" } }, "required": ["kind"] },
+      "then": { "$ref": "chiperka-service.schema.json" }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "Endpoint" } }, "required": ["kind"] },
+      "then": { "$ref": "chiperka-endpoint.schema.json" }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "Test" } }, "required": ["kind"] },
+      "then": { "$ref": "chiperka-test.schema.json" }
+    }
+  ]
 }

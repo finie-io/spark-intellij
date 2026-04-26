@@ -1,19 +1,17 @@
-name: ${NAME}
-
-tests:
-  - name: Service responds with 200
-    services:
-      - name: webserver
-        image: nginx:alpine
-        healthcheck:
-          test: "wget -q --spider http://localhost:80/"
-          retries: 30
-    execution:
-      executor: http
-      target: http://webserver
-      request:
-        method: GET
-        url: /
-    assertions:
-      - response:
-          statusCode: 200
+kind: Test
+metadata:
+  name: ${NAME}
+  description: ""
+spec:
+  endpoint: webserver-get-root
+  services:
+    - ref: webserver
+  execution:
+    executor: http
+    target: http://webserver
+    request:
+      method: GET
+      url: /
+  assertions:
+    - response:
+        statusCode: 200

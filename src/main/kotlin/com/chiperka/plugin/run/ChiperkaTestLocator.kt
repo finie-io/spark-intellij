@@ -9,7 +9,6 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLMapping
-import org.jetbrains.yaml.psi.YAMLSequence
 
 /**
  * SMTestLocator for Chiperka test files.
@@ -71,23 +70,23 @@ class ChiperkaTestLocator : SMTestLocator {
 
     /**
      * Finds the YAML key-value element for a test name within a .chiperka file.
-     * Looks in the "tests" array for a mapping with name: <testName>.
+     *
+     * In the new spec format every .chiperka file is multi-document YAML where
+     * each document is one of `kind: Service | Endpoint | Test`. We look for a
+     * `kind: Test` document whose `metadata.name` matches the requested test
+     * name and return that name key as the navigation target.
      */
     private fun findTestElement(yamlFile: YAMLFile, testName: String): com.intellij.psi.PsiElement? {
-        val doc = yamlFile.documents.firstOrNull() ?: return null
-        val topMapping = doc.topLevelValue as? YAMLMapping ?: return null
-
-        val testsKey = topMapping.getKeyValueByKey("tests") ?: return null
-        val testsSequence = testsKey.value as? YAMLSequence ?: return null
-
-        for (item in testsSequence.items) {
-            val mapping = item.value as? YAMLMapping ?: continue
-            val nameKV = mapping.getKeyValueByKey("name") ?: continue
+        for (doc in yamlFile.documents) {
+            val mapping = doc.topLevelValue as? YAMLMapping ?: continue
+            val kind = mapping.getKeyValueByKey("kind")?.valueText ?: continue
+            if (kind != "Test") continue
+            val metadata = mapping.getKeyValueByKey("metadata")?.value as? YAMLMapping ?: continue
+            val nameKV = metadata.getKeyValueByKey("name") ?: continue
             if (nameKV.valueText == testName) {
                 return nameKV
             }
         }
-
         return null
     }
 }
